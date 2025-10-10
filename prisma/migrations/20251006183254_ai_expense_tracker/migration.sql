@@ -34,4 +34,4 @@ CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 CREATE INDEX "Record_userId_idx" ON "Record"("userId");
 
 -- AddForeignKey
-ALTER TABLE "Record" ADD CONSTRAINT "Record_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("clerkUserId") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Record" ADD CONSTRAINT "Record_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("clerkUserId") ON DELETE CASCADE;
