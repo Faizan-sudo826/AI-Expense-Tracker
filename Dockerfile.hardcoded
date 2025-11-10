@@ -1,0 +1,90 @@
+# Multi-stage build for Next.js application with HARDCODED secrets
+
+# Stage 1: Dependencies
+FROM node:20-alpine AS deps
+WORKDIR /app
+
+# Copy package files
+COPY package.json package-lock.json ./
+COPY prisma ./prisma
+COPY . .
+
+# Install dependencies
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-factor 2 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm ci || npm install
+
+# Stage 2: Builder
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy application code
+COPY . .
+
+# ⚠️ HARDCODED ENVIRONMENT VARIABLES FOR BUILD
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+
+# Real values for build (needed for Prisma generation)
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_ZXhjaXRpbmctc2hlcGhlcmQtNDIuY2xlcmsuYWNjb3VudHMuZGV2JA
+ENV CLERK_SECRET_KEY=sk_test_wHkyUKco1GeJybZNay2dQT0QimvLqJKfh6tXLuqQEl
+ENV OPENROUTER_API_KEY=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
+ENV DATABASE_URL=postgresql://neondb_owner:npg_axl2wNh8ZDGe@ep-delicate-union-a1v2fuft-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+
+# Generate Prisma Client
+RUN npx prisma generate
+
+# Build Next.js
+RUN npm run build
+
+# Stage 3: Runner (Production)
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Copy necessary files from builder
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/prisma ./prisma
+
+# ⚠️ HARDCODED RUNTIME ENVIRONMENT VARIABLES
+ENV PORT=8080
+ENV HOSTNAME="0.0.0.0"
+
+# Database
+ENV DATABASE_URL='postgresql://neondb_owner:npg_axl2wNh8ZDGe@ep-delicate-union-a1v2fuft-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
+
+# Clerk Authentication
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_ZXhjaXRpbmctc2hlcGhlcmQtNDIuY2xlcmsuYWNjb3VudHMuZGV2JA
+ENV CLERK_SECRET_KEY=sk_test_wHkyUKco1GeJybZNay2dQT0QimvLqJKfh6tXLuqQEl
+ENV NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+ENV NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/
+ENV NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/
+
+# OpenRouter AI
+ENV OPENROUTER_API_KEY=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
+
+# Application URL (will be dynamic based on where deployed)
+ENV NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Change ownership to nextjs user
+RUN chown -R nextjs:nodejs /app
+
+USER nextjs
+
+EXPOSE 8080
+
+CMD ["node", "server.js"]

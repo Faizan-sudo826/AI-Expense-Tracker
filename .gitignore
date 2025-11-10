@@ -9,6 +9,13 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
 
 # testing
 /coverage
@@ -31,7 +38,11 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+.env
+.env.local
+.env.*.local
+.env.docker
+*.env
 
 # vercel
 .vercel
@@ -41,3 +52,31 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
+.ebextensions/*
+!.ebextensions/*.config
+
+# Keep .env out of version control
+.env
+.env.local
+.env.production
+
+# Database
+*.db
+*.db-journal
+prisma/migrations/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.yml
+
+# Logs
+*.log
+logs/
