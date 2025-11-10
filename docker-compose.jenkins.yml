@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for Jenkins build
+  postgres-jenkins:
+    image: postgres:16-alpine
+    container_name: ai-expense-tracker-db-jenkins
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: ai_expense_tracker_jenkins
+    volumes:
+      - postgres_jenkins_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"  # Different port from Part 1
+    networks:
+      - app-network-jenkins
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Web Application with Volume Mount
+  web-jenkins:
+    image: node:20-alpine
+    container_name: ai-expense-tracker-web-jenkins
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      # Mount code as volume instead of copying
+      - ./:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "9000:8080"  # Different port from Part 1 (9000 external)
+    environment:
+      # Database (pointing to postgres-jenkins container)
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres-jenkins:5432/ai_expense_tracker_jenkins?schema=public
+      
+      # Clerk Authentication (your hardcoded values)
+      - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_ZXhjaXRpbmctc2hlcGhlcmQtNDIuY2xlcmsuYWNjb3VudHMuZGV2JA
+      - CLERK_SECRET_KEY=sk_test_wHkyUKco1GeJybZNay2dQT0QimvLqJKfh6tXLuqQEl
+      - NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+      - NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/
+      - NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/
+      
+      # OpenRouter API
+      - OPENROUTER_API_KEY=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
+      
+      # Application
+      - NEXT_PUBLIC_APP_URL=http://localhost:9000
+      - NODE_ENV=production
+      - PORT=8080
+      - NEXT_TELEMETRY_DISABLED=1
+    depends_on:
+      postgres-jenkins:
+        condition: service_healthy
+    networks:
+      - app-network-jenkins
+    command: >
+      sh -c "
+        npm install &&
+        npx prisma generate &&
+        npx prisma migrate deploy &&
+        npm run build &&
+        npm start
+      "
+
+volumes:
+  postgres_jenkins_data:
+    driver: local
+
+networks:
+  app-network-jenkins:
+    driver: bridge
