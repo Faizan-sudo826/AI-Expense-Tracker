@@ -1,5 +1,10 @@
+// filepath: d:\Study Material\DevOps Project\AI Expense Tracker\ai_expense_tracker\postcss.config.mjs
+/** @type {import('postcss-load-config').Config} */
 const config = {
-  plugins: ["@tailwindcss/postcss"],
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
 };
 
 export default config;
